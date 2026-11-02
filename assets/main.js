@@ -684,7 +684,7 @@ const STAGES = [
   { name: "Конус воды растёт",   gas: 285, water: 6,   cone: 40, sand: 0.05, cav: 0.08, bar: 0, cons: 0, inj: 0, trap: 0.1,  sep: 0.3 },
   { name: "Прорыв воды и песка", gas: 170, water: 48,  cone: 64, sand: 1,    cav: 0.7,  bar: 0, cons: 0, inj: 0, trap: 0.55, sep: 0.72 },
   { name: "Самоглушение",        gas: 18,  water: 66,  cone: 70, sand: 0.35, cav: 1,    bar: 0, cons: 0, inj: 0, trap: 0.82, sep: 0.88 },
-  { name: "Закачка NanoCem GS",  gas: 0,   water: 0,   cone: 24, sand: 0,    cav: 1,    bar: 1, cons: 1, inj: 1, trap: 0.82, sep: 0.4 },
+  { name: "Закачка через пакер", gas: 0,   water: 0,   cone: 24, sand: 0,    cav: 1,    bar: 1, cons: 1, inj: 1, trap: 0.82, sep: 0.4 },
   { name: "Скважина восстановлена", gas: 245, water: 1.5, cone: 7, sand: 0, cav: 0.25, bar: 1, cons: 1, inj: 0, trap: 0.08, sep: 0.12 },
 ];
 const KEYS = Object.keys(STAGES[0]).filter((key) => key !== "name");
