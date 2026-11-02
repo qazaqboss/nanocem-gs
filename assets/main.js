@@ -871,6 +871,18 @@ root.addEventListener("keydown", (e) => {
   if (e.key === "ArrowRight") { e.preventDefault(); go(target + 1, true); }
   if (e.key === "ArrowLeft") { e.preventDefault(); go(target - 1, true); }
 });
+let touchX = null, touchY = 0;
+root.addEventListener("touchstart", (e) => { touchX = e.touches[0].clientX; touchY = e.touches[0].clientY; }, { passive: true });
+root.addEventListener("touchend", (e) => {
+  if (touchX === null) return;
+  const dx = e.changedTouches[0].clientX - touchX, dy = e.changedTouches[0].clientY - touchY;
+  touchX = null;
+  if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.5) go(target + (dx < 0 ? 1 : -1), true);
+}, { passive: true });
+if (matchMedia("(pointer: coarse)").matches) {
+  const hint = document.querySelector('[data-corner="hint"]');
+  if (hint) hint.textContent = "Листайте стадии свайпом";
+}
 
 let frame = 0, last = 0, visible = true;
 function tick(now) {
