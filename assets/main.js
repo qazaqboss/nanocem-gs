@@ -680,12 +680,20 @@ const { P, XP, Z_CAP, Z_GWC, PERF, PERF_SEAL, CAS_R, DIAL_Z, DIAL_R, SEP, SEP_R,
 
 // Illustrative model of one well, stage by stage. Numbers are for explanation, not field data.
 const STAGES = [
-  { name: "Нормальная добыча",   gas: 320, water: 0.4, cone: 5,  sand: 0,    cav: 0,    bar: 0, cons: 0, inj: 0, trap: 0.04, sep: 0.08 },
-  { name: "Конус воды растёт",   gas: 285, water: 6,   cone: 40, sand: 0.05, cav: 0.08, bar: 0, cons: 0, inj: 0, trap: 0.1,  sep: 0.3 },
-  { name: "Прорыв воды и песка", gas: 170, water: 48,  cone: 64, sand: 1,    cav: 0.7,  bar: 0, cons: 0, inj: 0, trap: 0.55, sep: 0.72 },
-  { name: "Самоглушение",        gas: 18,  water: 66,  cone: 70, sand: 0.35, cav: 1,    bar: 0, cons: 0, inj: 0, trap: 0.82, sep: 0.88 },
-  { name: "Закачка через пакер", gas: 0,   water: 0,   cone: 24, sand: 0,    cav: 1,    bar: 1, cons: 1, inj: 1, trap: 0.82, sep: 0.4 },
-  { name: "Скважина восстановлена", gas: 245, water: 1.5, cone: 7, sand: 0, cav: 0.25, bar: 1, cons: 1, inj: 0, trap: 0.08, sep: 0.12 },
+  { name: "Нормальная добыча",   gas: 320, water: 0.4, cone: 5,  sand: 0,    cav: 0,    bar: 0, cons: 0, inj: 0, trap: 0.04, sep: 0.08, pk: 0, plug: 0, reperf: 0 },
+  { name: "Конус воды растёт",   gas: 285, water: 6,   cone: 40, sand: 0.05, cav: 0.08, bar: 0, cons: 0, inj: 0, trap: 0.1,  sep: 0.3,  pk: 0, plug: 0, reperf: 0 },
+  { name: "Прорыв воды и песка", gas: 170, water: 48,  cone: 64, sand: 1,    cav: 0.7,  bar: 0, cons: 0, inj: 0, trap: 0.55, sep: 0.72, pk: 0, plug: 0, reperf: 0 },
+  { name: "Самоглушение",        gas: 18,  water: 66,  cone: 70, sand: 0.35, cav: 1,    bar: 0, cons: 0, inj: 0, trap: 0.82, sep: 0.88, pk: 0, plug: 0, reperf: 0 },
+  { name: "Задавка через пакер", gas: 0,   water: 0,   cone: 24, sand: 0,    cav: 1,    bar: 1, cons: 0, inj: 1, trap: 0.82, sep: 0.4,  pk: 1, plug: 1, reperf: 0 },
+  { name: "Реперфорация и пуск", gas: 245, water: 1.5, cone: 7,  sand: 0,    cav: 0.25, bar: 1, cons: 1, inj: 0, trap: 0.08, sep: 0.12, pk: 0, plug: 0, reperf: 1 },
+];
+const CAPS = [
+  "Газ идёт из песчаника через перфорации. Граница газ–вода (ГВК) стоит ниже и не двигается.",
+  "Депрессия у забоя тянет подошвенную воду вверх: над ГВК растёт конус и подходит к нижним перфорациям.",
+  "Вода дошла до перфораций и вымывает цемент песчаника. С водой идёт песок, за колонной растёт каверна.",
+  "Скорости газа не хватает, чтобы выносить жидкость. Столб воды в НКТ давит на пласт, скважина глушит себя.",
+  "Бригада КРС спустила НКТ с пакером и отсекла призабойную зону. Состав задавлен под давлением: над ГВК встал экран, перфорации и колонна под пакером залиты.",
+  "Стакан разбурен, над старыми нижними перфорациями оставлен цементный мост. Газовая часть вскрыта повторной перфорацией и закреплена компонентом B.",
 ];
 const KEYS = Object.keys(STAGES[0]).filter((key) => key !== "name");
 
@@ -694,6 +702,8 @@ const isoBox = root.closest(".iso");
 const svg = root.querySelector("svg");
 const $ = (name) => svg.querySelector(`[data-part="${name}"]`);
 const readout = document.querySelector("[data-readout]");
+const caption = document.querySelector("[data-cap]");
+const narrow = matchMedia("(max-width: 640px)");
 const buttons = [...document.querySelectorAll("[data-stage]")];
 const meters = { gas: document.querySelector("[data-m='gas']"), water: document.querySelector("[data-m='water']"), sand: document.querySelector("[data-m='sand']") };
 const autoBtn = document.querySelector("[data-auto]");
@@ -773,9 +783,42 @@ function shapes() {
     el.style.opacity = String(Math.min(1, cur.gas / 200));
     el.style.animationDuration = (cur.gas > 1 ? 120 / cur.gas : 99) + "s";
   }
+  // workover: tubing with packer, cement in the casing during the squeeze, bridge and new perforations after
+  for (const f of ["a", "b"]) {
+    const box = (z1, z2, r = CAS_R) => pathFor(f, [[0, z1], [r, z1], [r, z2], [0, z2]]);
+    wo[f].tube.setAttribute("d", box(-6, PK_Z + 3, 2.2));
+    wo[f].packer.setAttribute("d", box(PK_Z + 4, PK_Z - 4, CAS_R + 1.5));
+    wo[f].plug.setAttribute("d", box(PK_Z - 3, Z_BAR));
+    wo[f].bridge.setAttribute("d", box(PERF_SEAL + 2, Z_BAR));
+    const l = [];
+    for (let z = PERF[0] - 2; z > PERF_SEAL + 4; z -= 6) l.push("M" + scr(faceW[f](CAS_R, z)).map((v) => v.toFixed(1)).join(" ") + "L" + scr(faceW[f](CAS_R + 15, z - 1.5)).map((v) => v.toFixed(1)).join(" "));
+    wo[f].perf.setAttribute("d", l.join(""));
+    wo[f].tube.style.opacity = wo[f].packer.style.opacity = String(cur.pk);
+    wo[f].plug.style.opacity = String(cur.plug);
+    wo[f].bridge.style.opacity = String(cur.bar * (1 - cur.plug));
+    wo[f].perf.style.opacity = String(cur.reperf);
+  }
+  svg.querySelectorAll("[data-perf]").forEach((g) => g.style.opacity = String(1 - 0.85 * cur.plug));
   $("hose-flow").style.opacity = String(cur.inj);
   $("hose").classList.toggle("is-on", cur.inj > 0.3);
 }
+const PK_Z = -90;
+const wo = {};
+{
+  const g = document.createElementNS(NS, "g");
+  g.setAttribute("class", "wo");
+  svg.appendChild(g);
+  const add = (cls) => { const el = document.createElementNS(NS, "path"); el.setAttribute("class", cls); g.appendChild(el); return el; };
+  for (const f of ["a", "b"]) wo[f] = { plug: add("st-nano wo-plug"), bridge: add("st-nano"), tube: add("wo-tube"), packer: add("wo-packer"), perf: add("wo-perf") };
+}
+// on phones, crop the empty margins so the section reads larger
+const fullBox = svg.getAttribute("viewBox");
+function fitBox() {
+  if (!narrow.matches) { svg.setAttribute("viewBox", fullBox); return; }
+  svg.setAttribute("viewBox", "100 18 560 600");
+}
+fitBox();
+narrow.addEventListener("change", () => { fitBox(); run(); });
 function level(id, [x, y], r, half, z0, z1, share) {
   const z = z0 + (z1 - z0) * Math.max(0, Math.min(1, share));
   const a0 = Math.PI / 4 - half, a1 = Math.PI / 4 + half, l = [];
@@ -843,7 +886,7 @@ function stepParticles(dt) {
 const fmtN = (v, d = 0) => v.toLocaleString("ru-RU", { maximumFractionDigits: d, minimumFractionDigits: d });
 function say() {
   const s = STAGES[target];
-  const text = `${target + 1}/6 · ${s.name} · газ ${fmtN(cur.gas)} тыс. м³/сут · вода ${fmtN(cur.water, cur.water < 10 ? 1 : 0)} м³/сут`;
+  const text = narrow.matches ? `${target + 1}/6 · ${s.name}` : `${target + 1}/6 · ${s.name} · газ ${fmtN(cur.gas)} тыс. м³/сут · вода ${fmtN(cur.water, cur.water < 10 ? 1 : 0)} м³/сут`;
   if (readout.textContent !== text) readout.textContent = text;
   meters.gas.style.setProperty("--v", (cur.gas / 320).toFixed(3));
   meters.water.style.setProperty("--v", Math.min(1, cur.water / 66).toFixed(3));
@@ -855,6 +898,7 @@ function say() {
 function go(index, byUser) {
   target = (index + STAGES.length) % STAGES.length;
   buttons.forEach((b, i) => { b.setAttribute("aria-pressed", String(i === target)); });
+  if (caption) caption.textContent = CAPS[target];
   if (byUser) setAuto(false);
   clock = 0;
   run();
